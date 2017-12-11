@@ -36,26 +36,30 @@ def dickeys2str(dictionary, ignores):
 
 def generate_training_dataset(seqs,seq_length,n_letters,n_chars,batchsize):
     i = 0
+    iters = range(n_letters-seq_length)
+    np.random.shuffle(iters)
     while 1:
         if (1+i)*batchsize+seq_length-1 <= n_letters:
-            datain = [seqs[i*batchsize+n:i*batchsize+n+seq_length] for n in range(batchsize)]
+            chosen_input_num = iters[i*batchsize:(i+1)*batchsize-1]
+            datain = [seqs[n:n+seq_length] for n in chosen_input_num]
             datain = np.reshape(datain, (-1,seq_length,1))
-            dataout = [np_utils.to_categorical(seqs[i*batchsize+m+seq_length],n_chars) for m in range(batchsize)]
+            dataout = [np_utils.to_categorical(seqs[m+seq_length],n_chars) for m in chosen_input_num]
             dataout = np.reshape(dataout, (-1,n_chars))
             i += 1
         else :
-            datain = [seqs[i*batchsize+n:i*batchsize+n+seq_length]  for n in range(batchsize) if n <(n_letters-batchsize*i-seq_length)]
+            datain = [seqs[n:n+seq_length]  for n in chosen_input_num]
             datain = np.reshape(datain, (-1,seq_length,1))
-            dataout = [np_utils.to_categorical(seqs[i*batchsize+m+seq_length],n_chars) for m in range(batchsize) if m <(n_letters-batchsize*i-seq_length)]
+            dataout = [np_utils.to_categorical(seqs[m+seq_length],n_chars) for m in chosen_input_num]
             dataout = np.reshape(dataout, (-1,n_chars))
             i=0
+            np.random.shuffle(iters)
         yield({'input_1':datain},{'dense_1':dataout})
 parser = OptionParser()
 parser.add_option("-f","--file",dest = "filename", help = "input the training set file",default = "data/Aesop\'s Fables_pro_end.txt", metavar ="FILE")
 parser.add_option("-l","--length",dest = "seq_length", help = "input the length of sequences",default = 5,type=int)
 parser.add_option("-n","--network",dest = "net_structure", help = "decide the network structure, needs more than one hidden layers",action = "append",default = [],type=int)
 
-parser.add_option("--drop",dest = "dropout", help = "input the value of dropout rate",default = 0.2,type=int)
+parser.add_option("--drop",dest = "dropout", help = "input the value of dropout rate",default = 0.2,type=float)
 parser.add_option("-e","--epoch",dest = "epoch", help = "input the number of training epoch",default = 1000,type=int)
 parser.add_option("-b","--batch",dest = "batch_size", help = "decide the training batch size",default = 256,type=int)
 parser.add_option("-d","--mkdir",dest = "mkdir", help = "decide the output destination",default = "output/temp")
@@ -128,14 +132,14 @@ if save_path =='auto':
     read_txt_name = filename.split('/')[len(filename.split('/'))-1]
     read_txt_name = read_txt_name[:len(read_txt_name)-4]
     net_structure_str = ''.join([str(num)+'_' for num in net_structure])
-    save_path = 'outputs2/'+read_txt_name+'_'+str(seq_len)+'words_'+net_structure_str+'dropout'+str(options.dropout)+'/'
+    save_path = 'outputs3/'+read_txt_name+'_'+str(seq_len)+'words_'+net_structure_str+'dropout'+str(options.dropout)+'/'
 if not os.path.exists(save_path):
     os.makedirs(save_path)
 if save_path[len(save_path)-1]!="/":
     save_path=save_path+"/"
 filepath=save_path+"weights-improvement-{epoch:02d}-{loss:.4f}.hdf5"
 checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=options.verbose, save_best_only=True, mode='min',period =options.period)
-modelVisual = TensorBoard(log_dir="keras_logs/")
+modelVisual = TensorBoard(log_dir=save_path)
 if options.stop<0:
     callbacks_list = [checkpoint,modelVisual]
 else:
@@ -143,7 +147,7 @@ else:
     callbacks_list = [checkpoint,modelVisual,stopingpoint]
 
 # fit the model
-model.fit_generator(generate_training_dataset(seqs,seq_len,words_num,vocanum,batchsize), steps_per_epoch = (words_num+1-seq_len)/batchsize ,verbose = 1, epochs=options.epoch, initial_epoch = ini_epoch, callbacks=callbacks_list) 
+model.fit_generator(generate_training_dataset(seqs,seq_len,words_num,vocanum,batchsize), steps_per_epoch = (words_num+1-seq_len)/batchsize ,verbose = 0, epochs=options.epoch, initial_epoch = ini_epoch, callbacks=callbacks_list) 
 
 # fit the model
 #model.fit(datain, matrixs[seq_len:words_num], epochs=options.epoch, initial_epoch = ini_epoch,  batch_size=options.batch_size,verbose = 0, callbacks=callbacks_list) 
