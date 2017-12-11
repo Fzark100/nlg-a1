@@ -9,6 +9,7 @@ from keras.models import load_model
 import codecs
 import os 
 import re
+from nlgeval import compute_metrics
 def txtpreprocessing(filename, letters):
     raw_text = codecs.open(filename,'r','utf-8').read().lower()
     #tear the word and the signs apart
@@ -81,6 +82,7 @@ def perplexity(test_text,storage_tri,storage_bi,storage_uni):
     eval = dict()
     text_len = len(test_words)
     p = 0.0
+    seq_len = 3
     #perplexity
     for i in range(text_len-seq_len+1):
         gram = tuple(test_words[i:i+seq_len])
@@ -91,21 +93,17 @@ def perplexity(test_text,storage_tri,storage_bi,storage_uni):
 
 
 
-modelname = "outputs2/Aesop's Fables_5words_256_256_dropout0.2/weights-improvement-3249-0.1333.hdf5"
+modelname = "outputs2/Aesop's Fables_5words_256_256_dropout0.5/weights-improvement-999-1.1113.hdf5"
 model = load_model(modelname)
 
 test_f = "data/Grimm's Fairy Tales.txt"
-new_words = txtpreprocessing(filename, letters)
+new_words = txtpreprocessing(test_f, letters)
 new_words = [w for w in new_words if w in wordlist]
 n_words = len(new_words)
 input_index = [wordlist.get(value) for value in new_words]   
 
 sequence_len = 5
-generate_len = 100
-start_test = np.random.randint(0,n_words-sequence_len)
-test_txt = new_words[start_test:start_test+sequence_len]
-print test_txt
-test_index = [wordlist.get(value) for value in test_txt]   
+generate_len = 33
 
 def txt_generation(test_index,rever_wordlist,sequence_len,generate_len): 
     output = ''
@@ -123,6 +121,28 @@ def txt_generation(test_index,rever_wordlist,sequence_len,generate_len):
             #break 
             test_index.append(predict_index)
     return output
-generated_txt = txt_generation(test_index,rever_wordlist,sequence_len,generate_len)
-print generated_txt
-print perplexity(generated_txt,storage_tri,storage_bi,storage_uni)
+sample_num = 30
+generated_txt = []
+reference_txt = []
+perplexitys = 0
+for i in range(sample_num):
+    start_test = np.random.randint(0,n_words-sequence_len)
+    test_txt = new_words[start_test:start_test+sequence_len]
+    ref_txt = new_words[start_test+sequence_len:start_test+sequence_len+generate_len]
+    ref_txt = ''.join([w+' '  for w in ref_txt])
+    test_index = [wordlist.get(value) for value in test_txt]  
+    txtgen = txt_generation(test_index,rever_wordlist,sequence_len,generate_len)
+    perplexitys +=perplexity(txtgen,storage_tri,storage_bi,storage_uni)
+    generated_txt.append(txtgen+'\r\n')
+    reference_txt.append(ref_txt+'\r\n')
+print perplexitys/sample_num
+fo1 = open("hyp.txt", "w")
+fo1.writelines( generated_txt )
+fo1.close()
+fo2 = open("ref.txt", "w")
+fo2.writelines( reference_txt )
+fo2.close()
+metrics_dict = compute_metrics(hypothesis="hyp.txt",references=["ref.txt"])
+
+
+#print metrics_dict
