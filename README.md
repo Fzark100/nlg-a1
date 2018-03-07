@@ -1,5 +1,5 @@
 # nlg-a1
-The first attempt about nature language generation; use simple LSTM RNN to generate text in both character level and word level\\
+The first attempt about nature language generation; use simple LSTM RNN to generate text in both character level and word level\r\n
 files starting with 'train' are used to train the constructed neural network.\\
 files starting with 'demo' are used to test the trained neural network.\\
 files with 'char' are designed for character-based NLG.\\
